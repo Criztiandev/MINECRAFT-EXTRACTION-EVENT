@@ -7,7 +7,7 @@ description: A Minecraft plugin for extraction event mechanics.
 website: https://github.com/criztiandev/extraction-event
 
 commands:
-  extractionevent:
-    description: Main command for ExtractionEvent.
-    usage: /extractionevent [args]
-    aliases: [ee]
+  lev:
+    description: Main command for Lev regions.
+    usage: /lev <wand|create|remove|list>
+    aliases: [ee, extractionevent]

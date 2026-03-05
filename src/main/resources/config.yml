@@ -5,3 +5,11 @@
 settings:
   debug: false
   prefix: "&8[&bExtractionEvent&8]&r"
+
+# Wand settings
+wand:
+  material: BLAZE_ROD
+  name: "&dLev Region Selector"
+  lore:
+    - "&7Left-Click to set Pos 1"
+    - "&7Right-Click to set Pos 2"

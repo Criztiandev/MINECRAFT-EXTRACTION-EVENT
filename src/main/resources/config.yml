@@ -1,0 +1,7 @@
+# ExtractionEvent Configuration
+# Plugin version: ${project.version}
+
+# General settings
+settings:
+  debug: false
+  prefix: "&8[&bExtractionEvent&8]&r"

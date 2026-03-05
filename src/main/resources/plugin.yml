@@ -1,0 +1,13 @@
+name: ExtractionEvent
+version: "${project.version}"
+main: com.criztiandev.extractionevent.ExtractionEventPlugin
+api-version: "1.21"
+author: criztiandev
+description: A Minecraft plugin for extraction event mechanics.
+website: https://github.com/criztiandev/extraction-event
+
+commands:
+  extractionevent:
+    description: Main command for ExtractionEvent.
+    usage: /extractionevent [args]
+    aliases: [ee]

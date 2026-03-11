@@ -6,8 +6,19 @@ author: criztiandev
 description: A Minecraft plugin for extraction event mechanics.
 website: https://github.com/criztiandev/extraction-event
 
+soft-depend: [ProtocolLib]
+
 commands:
-  lev:
-    description: Main command for Lev regions.
-    usage: /lev <wand|create|remove|list>
-    aliases: [ee, extractionevent]
+  lrev:
+    description: Main command for Loot Region Event regions.
+    usage: /lrev [gui|wand|create|remove|list|showNameTags|toggle|reload]
+    aliases: [lev, ee, extractionevent]
+
+permissions:
+  extractionevent.admin:
+    description: Full admin access — GUI, /lev toggle, /lev showNameTags.
+    default: op
+
+  lev.bypass:
+    description: Bypasses warzone restrictions (spectator mode, flight, reach checks).
+    default: op

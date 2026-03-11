@@ -11,133 +11,245 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Per-region admin GUI (54-slot / 6 rows).
+ *
+ * Layout:
+ * ┌─────────────────────────────────────────────────────┐
+ * │  Row 1 (Player Protection)  slots 0-8               │
+ * │  [10] NameTags  [11] EnderPearl  [12] AntiStasis    │
+ * │  [13] EnderChest Restrict                           │
+ * ├─────────────────────────────────────────────────────┤
+ * │  Row 3 (Anti-Cheat)         slots 18-26             │
+ * │  [19] FreeCam   [20] DamageCap                      │
+ * ├─────────────────────────────────────────────────────┤
+ * │  Row 4 (Visual Effects)     slots 27-35             │
+ * │  [28] Lightning [29] Mimic  [30] Kill Effect        │
+ * ├─────────────────────────────────────────────────────┤
+ * │  Row 6 (Actions)            slots 45-53             │
+ * │  [46] Teleport  [49] Delete  [53] Back              │
+ * └─────────────────────────────────────────────────────┘
+ */
 public class RegionAdminGui implements Gui {
+
+    private static final int SIZE = 54;
+
+    // ── Category header slots ─────────────────────────────────────────────────
+    private static final int HEADER_PROTECTION = 0;
+    private static final int HEADER_ANTICHEAT  = 18;
+    private static final int HEADER_VISUAL     = 27;
+
+    // ── Row 1: Player Protection ──────────────────────────────────────────────
+    private static final int NAME_TAG_SLOT       = 10;
+    private static final int PEARL_SLOT          = 11;
+    private static final int ENDER_CHEST_SLOT    = 13;
+
+    // ── Row 3: Anti-Cheat ─────────────────────────────────────────────────────
+    private static final int FREECAM_SLOT        = 19;
+    private static final int DAMAGE_CAP_SLOT     = 20;
+
+    // ── Row 4: Visual Effects ─────────────────────────────────────────────────
+    private static final int LIGHTNING_SLOT      = 28;
+    private static final int MIMIC_SLOT          = 29;
+    private static final int KILL_EFFECT_SLOT    = 30;
+
+    // ── Row 6: Actions ────────────────────────────────────────────────────────
+    private static final int TELEPORT_SLOT       = 46;
+    private static final int DELETE_SLOT         = 49;
+    private static final int BACK_SLOT           = 53;
 
     private final ExtractionEventPlugin plugin;
     private final LevRegion region;
-    private final MainMenuGui parentGui;
     private final Inventory inventory;
 
-    private static final int DELETE_SLOT = 11;
-    private static final int PEARL_TOGGLE_SLOT = 13;
-    private static final int NAME_TAG_TOGGLE_SLOT = 14;
-    private static final int LIGHTNING_TOGGLE_SLOT = 15;
-    private static final int TELEPORT_SLOT = 22;
-    private static final int BACK_SLOT = 26;
-
-    public RegionAdminGui(ExtractionEventPlugin plugin, LevRegion region, MainMenuGui parentGui) {
-        this.plugin = plugin;
-        this.region = region;
-        this.parentGui = parentGui;
-        this.inventory = Bukkit.createInventory(this, 27, "§8Manage: §d" + region.getId());
-        initializeItems();
+    public RegionAdminGui(ExtractionEventPlugin plugin, LevRegion region, Gui parentGui) {
+        this.plugin    = plugin;
+        this.region    = region;
+        this.inventory = Bukkit.createInventory(this, SIZE, "§8Manage: §d" + region.getId());
+        render();
     }
 
-    private void initializeItems() {
-        // Delete Item
-        inventory.setItem(DELETE_SLOT, createGuiItem(Material.BARRIER, "§cDelete Region", "§7Click to permanently delete this region."));
-        
-        // Teleport Item
-        inventory.setItem(TELEPORT_SLOT, createGuiItem(Material.ENDER_PEARL, "§bTeleport", "§7Click to teleport to the center of this region."));
+    private void render() {
+        // Clear first
+        for (int i = 0; i < SIZE; i++) inventory.setItem(i, filler());
 
-        // Pearl Toggle Item
-        inventory.setItem(PEARL_TOGGLE_SLOT, createGuiItem(Material.ENDER_EYE, "§aToggle Pearl Block", "§7Currently: " + (region.isBlockEnderPearl() ? "§aEnabled" : "§cDisabled"), "§7Click to toggle blocking pearling out of region."));
+        // ── Category headers ─────────────────────────────────────────────────
+        inventory.setItem(HEADER_PROTECTION, makeItem(Material.SHIELD,
+                "§b§lPlayer Protection", "§7Toggle warzone restriction features."));
+        inventory.setItem(HEADER_ANTICHEAT, makeItem(Material.IRON_SWORD,
+                "§e§lAnti-Cheat", "§7Toggle exploit prevention systems."));
+        inventory.setItem(HEADER_VISUAL, makeItem(Material.BLAZE_POWDER,
+                "§6§lVisual Effects", "§7Toggle cosmetic kill & spawn effects."));
 
-        // Name Tag Toggle Item
-        inventory.setItem(NAME_TAG_TOGGLE_SLOT, createGuiItem(Material.NAME_TAG, "§aToggle Name Tags", "§7Currently Hidden: " + (region.isHideNameTags() ? "§aYes" : "§cNo"), "§7Click to toggle hiding player name tags in region."));
+        // ── Row 1: Player Protection ─────────────────────────────────────────
+        inventory.setItem(NAME_TAG_SLOT,    toggle(Material.NAME_TAG,
+                "Hide Name Tags",
+                "Players appear as §8Anonymous§7 — no name tags overhead.",
+                region.isHideNameTags()));
 
-        // Lightning Toggle Item
-        inventory.setItem(LIGHTNING_TOGGLE_SLOT, createGuiItem(Material.LIGHTNING_ROD, "§aToggle Death Lightning", "§7Currently: " + (region.isLightningOnDeath() ? "§aEnabled" : "§cDisabled"), "§7Click to toggle visual lightning strikes on death."));
+        inventory.setItem(PEARL_SLOT,       toggle(Material.ENDER_EYE,
+                "Block Ender Pearl",
+                "Prevents pearling across region boundaries.",
+                region.isBlockEnderPearl()));
 
-        // Back Item
-        inventory.setItem(BACK_SLOT, createGuiItem(Material.ARROW, "§cGo Back", "§7Return to main menu."));
+        inventory.setItem(ENDER_CHEST_SLOT, toggle(Material.ENDER_CHEST,
+                "Restrict Ender Chest",
+                "Players may only TAKE items — no depositing in the warzone.",
+                region.isEnderChestRestricted()));
 
-        // Filler
-        ItemStack filler = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 0; i < inventory.getSize(); i++) {
-            if (inventory.getItem(i) == null) {
-                inventory.setItem(i, filler);
-            }
-        }
+        // ── Row 3: Anti-Cheat ────────────────────────────────────────────────
+        inventory.setItem(FREECAM_SLOT,     toggle(Material.SPYGLASS,
+                "Block FreeCam",
+                "Blocks spectator mode, flight, and extended-reach interactions.",
+                region.isFreeCamBlocked()));
+
+        inventory.setItem(DAMAGE_CAP_SLOT,  toggle(Material.IRON_CHESTPLATE,
+                "Damage Cap",
+                "Caps one-hit damage (max " +
+                        plugin.getConfig().getDouble("warzone.max-single-hit", 18) +
+                        " HP) and prevents 1-tap kills.",
+                region.isDamageCapped()));
+
+        // ── Row 4: Visual Effects ────────────────────────────────────────────
+        inventory.setItem(LIGHTNING_SLOT,   toggle(Material.LIGHTNING_ROD,
+                "Death Lightning",
+                "Strikes cosmetic lightning bolt at every kill location.",
+                region.isLightningOnDeath()));
+
+        inventory.setItem(MIMIC_SLOT,       toggle(Material.SCULK_SHRIEKER,
+                "Spawn Mimic",
+                "Spawns a Mimic Warden when 3+ players group up.",
+                region.isSpawnMimic()));
+
+        inventory.setItem(KILL_EFFECT_SLOT, toggle(Material.PAPER,
+                "Kill Announcements",
+                "Broadcasts an anonymous '§7A player has fallen §8⚡§7' on kills.",
+                region.isKillEffectEnabled()));
+
+        // ── Row 6: Actions ───────────────────────────────────────────────────
+        inventory.setItem(TELEPORT_SLOT, makeItem(Material.ENDER_PEARL,
+                "§bTeleport to Region",
+                "§7Teleports you to the centre of §f" + region.getId() + "§7."));
+
+        inventory.setItem(DELETE_SLOT, makeItem(Material.BARRIER,
+                "§cDelete Region",
+                "§7Permanently removes this region. §cThis cannot be undone!"));
+
+        inventory.setItem(BACK_SLOT, makeItem(Material.ARROW,
+                "§cBack", "§7Return to the region list."));
     }
 
-    @Override
-    public Inventory getInventory() {
-        return inventory;
-    }
+    @Override public Inventory getInventory() { return inventory; }
 
-    @Override
-    public void open(Player player) {
-        player.openInventory(inventory);
-    }
+    @Override public void open(Player player) { player.openInventory(inventory); }
 
     @Override
     public void onClick(InventoryClickEvent event) {
         Player player = (Player) event.getWhoClicked();
-        int slot = event.getSlot();
+        int slot       = event.getSlot();
 
-        if (slot == BACK_SLOT) {
-            if (parentGui != null) {
-                // Refresh main menu just in case things deleted
-                new MainMenuGui(plugin).open(player);
-            } else {
-                player.closeInventory();
+        switch (slot) {
+            case BACK_SLOT -> new RegionListGui(plugin).open(player);
+
+            case DELETE_SLOT -> {
+                plugin.getRegionManager().deleteRegion(region.getId());
+                player.sendMessage("§aRegion §e" + region.getId() + " §adeleted.");
+                // Open a FRESH list — the old parentGui still holds the deleted region in its snapshot
+                new RegionListGui(plugin).open(player);
             }
-        } else if (slot == DELETE_SLOT) {
-            plugin.getRegionManager().deleteRegion(region.getId());
-            player.sendMessage("§aRegion deleted.");
-            if (parentGui != null) {
-                 new MainMenuGui(plugin).open(player);
-            } else {
-                 player.closeInventory();
+
+            case TELEPORT_SLOT -> teleportToCenter(player);
+
+            // ── Protection toggles ────────────────────────────────────────
+            case NAME_TAG_SLOT -> {
+                region.setHideNameTags(!region.isHideNameTags());
+                save(player, "Name tag hiding", region.isHideNameTags());
             }
-        } else if (slot == TELEPORT_SLOT) {
-            // Find center
-            int centerX = (region.getMinX() + region.getMaxX()) / 2;
-            int centerZ = (region.getMinZ() + region.getMaxZ()) / 2;
-            org.bukkit.World w = Bukkit.getWorld(region.getWorld());
-            if (w != null) {
-                // Find highest block to safely TP to
-                int highestY = w.getHighestBlockYAt(centerX, centerZ);
-                Location loc = new Location(w, centerX + 0.5, highestY + 1, centerZ + 0.5);
-                player.teleport(loc);
-                player.sendMessage("§aTeleported to region " + region.getId() + ".");
-            } else {
-                player.sendMessage("§cCannot find world " + region.getWorld() + "!");
+            case PEARL_SLOT -> {
+                region.setBlockEnderPearl(!region.isBlockEnderPearl());
+                save(player, "Ender pearl blocking", region.isBlockEnderPearl());
             }
-        } else if (slot == PEARL_TOGGLE_SLOT) {
-            region.setBlockEnderPearl(!region.isBlockEnderPearl());
-            plugin.getRegionManager().saveRegion(region);
-            initializeItems();
-            player.sendMessage("§aPearl blocking set to: " + (region.isBlockEnderPearl() ? "Enabled" : "Disabled"));
-        } else if (slot == NAME_TAG_TOGGLE_SLOT) {
-            region.setHideNameTags(!region.isHideNameTags());
-            plugin.getRegionManager().saveRegion(region);
-            initializeItems();
-            player.sendMessage("§aName tag hiding set to: " + (region.isHideNameTags() ? "Yes" : "No"));
-        } else if (slot == LIGHTNING_TOGGLE_SLOT) {
-            region.setLightningOnDeath(!region.isLightningOnDeath());
-            plugin.getRegionManager().saveRegion(region);
-            initializeItems();
-            player.sendMessage("§aDeath lightning set to: " + (region.isLightningOnDeath() ? "Enabled" : "Disabled"));
+            case ENDER_CHEST_SLOT -> {
+                region.setEnderChestRestricted(!region.isEnderChestRestricted());
+                save(player, "Ender chest restriction", region.isEnderChestRestricted());
+            }
+
+            // ── Anti-cheat toggles ────────────────────────────────────────
+            case FREECAM_SLOT -> {
+                region.setFreeCamBlocked(!region.isFreeCamBlocked());
+                save(player, "FreeCam blocking", region.isFreeCamBlocked());
+            }
+            case DAMAGE_CAP_SLOT -> {
+                region.setDamageCapped(!region.isDamageCapped());
+                save(player, "Damage cap", region.isDamageCapped());
+            }
+
+            // ── Visual toggles ────────────────────────────────────────────
+            case LIGHTNING_SLOT -> {
+                region.setLightningOnDeath(!region.isLightningOnDeath());
+                save(player, "Death lightning", region.isLightningOnDeath());
+            }
+            case MIMIC_SLOT -> {
+                region.setSpawnMimic(!region.isSpawnMimic());
+                save(player, "Mimic spawns", region.isSpawnMimic());
+            }
+            case KILL_EFFECT_SLOT -> {
+                region.setKillEffectEnabled(!region.isKillEffectEnabled());
+                save(player, "Kill announcements", region.isKillEffectEnabled());
+            }
         }
     }
-    
-    private ItemStack createGuiItem(Material material, String name, String... lore) {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void save(Player player, String featureName, boolean newState) {
+        plugin.getRegionManager().saveRegion(region);
+        render(); // refresh GUI
+        String stateStr = newState ? "§aEnabled" : "§cDisabled";
+        player.sendMessage("§e" + featureName + " §7set to " + stateStr + "§7.");
+    }
+
+    private void teleportToCenter(Player player) {
+        int centerX = (region.getMinX() + region.getMaxX()) / 2;
+        int centerZ = (region.getMinZ() + region.getMaxZ()) / 2;
+        org.bukkit.World w = Bukkit.getWorld(region.getWorld());
+        if (w == null) {
+            player.sendMessage("§cWorld §e" + region.getWorld() + " §cnot found!");
+            return;
+        }
+        int y = w.getHighestBlockYAt(centerX, centerZ) + 1;
+        player.teleport(new Location(w, centerX + 0.5, y, centerZ + 0.5));
+        player.sendMessage("§aTeleported to §e" + region.getId() + "§a.");
+    }
+
+    /** Creates a toggle button — green when enabled, red when disabled. */
+    private ItemStack toggle(Material mat, String name, String description, boolean enabled) {
+        String status   = enabled ? "§aEnabled" : "§cDisabled";
+        Material wool   = enabled ? Material.LIME_WOOL : Material.RED_WOOL;
+        return makeItem(wool, (enabled ? "§a" : "§c") + name,
+                "§7" + description,
+                "",
+                "§7Status: " + status,
+                "",
+                "§eClick to toggle.");
+    }
+
+    private ItemStack makeItem(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+        ItemMeta meta  = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(name);
-            List<String> loreList = new ArrayList<>();
-            for (String l : lore) {
-                loreList.add(l);
-            }
+            List<String> loreList = lore.length > 0 ? Arrays.asList(lore) : List.of();
             meta.setLore(loreList);
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    private ItemStack filler() {
+        return makeItem(Material.GRAY_STAINED_GLASS_PANE, " ");
     }
 }

@@ -48,7 +48,10 @@ public class RegionManager {
     public LevRegion getRegionAt(Location location) {
         if (location.getWorld() == null) return null;
 
-        List<LevRegion> worldRegions = regionsByWorld.getOrDefault(location.getWorld().getName().toLowerCase(), new CopyOnWriteArrayList<>());
+        // Avoid allocating a new COWAL on every world miss — return null immediately
+        List<LevRegion> worldRegions = regionsByWorld.get(location.getWorld().getName().toLowerCase());
+        if (worldRegions == null) return null;
+
         int x = location.getBlockX();
         int y = location.getBlockY();
         int z = location.getBlockZ();

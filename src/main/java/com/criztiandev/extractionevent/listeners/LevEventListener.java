@@ -4,7 +4,11 @@ import com.criztiandev.extractionevent.ExtractionEventPlugin;
 import com.criztiandev.extractionevent.models.LevRegion;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 
 public class LevEventListener implements Listener {
 
@@ -14,45 +18,58 @@ public class LevEventListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
-    public void onPlayerTeleport(org.bukkit.event.player.PlayerTeleportEvent event) {
-        if (event.getCause() == org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.ENDER_PEARL) {
-            Location from = event.getFrom();
-            Location to = event.getTo();
+    // ── Ender Pearl restrictions ───────────────────────────────────────────────
 
-            if (to == null) return;
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        if (event.getCause() != TeleportCause.ENDER_PEARL) return;
 
-            LevRegion regionTo = plugin.getRegionManager().getRegionAt(to);
-            LevRegion regionFrom = plugin.getRegionManager().getRegionAt(from);
+        org.bukkit.entity.Player player = event.getPlayer();
+        boolean isAdmin = player.hasPermission("extractionevent.admin");
+        boolean isTestMode = plugin.isTestMode(player.getUniqueId());
 
-            // If escaping a region
-            if (regionFrom != null && regionFrom.isBlockEnderPearl()) {
-                if (regionTo == null || !regionTo.getId().equals(regionFrom.getId())) {
-                    event.setCancelled(true);
-                    event.getPlayer().sendMessage("§cYou cannot ender pearl out of a lev region!");
-                    return;
-                }
+        // Admins bypass restrictions unless they opted in to test mode
+        if (isAdmin && !isTestMode) {
+            return;
+        }
+
+        Location from = event.getFrom();
+        Location to   = event.getTo();
+        if (to == null) return;
+
+        LevRegion regionFrom = plugin.getRegionManager().getRegionAt(from);
+        LevRegion regionTo   = plugin.getRegionManager().getRegionAt(to);
+
+        // Pearl thrown FROM inside → must land inside the same region
+        if (regionFrom != null && regionFrom.isBlockEnderPearl()) {
+            if (regionTo == null || !regionTo.getId().equals(regionFrom.getId())) {
+                plugin.getLogger().info("[DEBUG-PEARL] Blocked: Pearling OUT of region " + regionFrom.getId());
+                event.setCancelled(true);
+                player.sendMessage("§c✖ §7You cannot ender pearl out of the warzone!");
+                return;
             }
+        }
 
-            // If entering a region from outside
-            if (regionTo != null && regionTo.isBlockEnderPearl()) {
-                if (regionFrom == null || !regionFrom.getId().equals(regionTo.getId())) {
-                    event.setCancelled(true);
-                    event.getPlayer().sendMessage("§cYou cannot ender pearl into a lev region from the outside!");
-                }
+        // Pearl landing INTO a restricted region from outside → block it
+        if (regionTo != null && regionTo.isBlockEnderPearl()) {
+            if (regionFrom == null || !regionFrom.getId().equals(regionTo.getId())) {
+                plugin.getLogger().info("[DEBUG-PEARL] Blocked: Pearling INTO region " + regionTo.getId() + " from outside");
+                event.setCancelled(true);
+                player.sendMessage("§c✖ §7You cannot ender pearl into the warzone from outside!");
             }
         }
     }
 
+    // ── Mimic death cleanup ───────────────────────────────────────────────────
+
     @EventHandler
-    public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
-        Location loc = event.getEntity().getLocation();
-        LevRegion region = plugin.getRegionManager().getRegionAt(loc);
-        
-        if (region != null && region.isLightningOnDeath()) {
-            // Strike visual lightning effect (no damage/fire)
-            if (loc.getWorld() != null) {
-                loc.getWorld().strikeLightningEffect(loc);
+    public void onEntityDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof org.bukkit.entity.Warden warden)) return;
+
+        if (warden.getCustomName() != null && warden.getCustomName().equals("§cMimic")) {
+            LevRegion region = plugin.getRegionManager().getRegionAt(warden.getLocation());
+            if (region != null) {
+                plugin.getMimicManager().unregisterMimic(region.getId());
             }
         }
     }

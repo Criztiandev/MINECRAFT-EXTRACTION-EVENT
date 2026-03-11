@@ -6,7 +6,7 @@
 
   <groupId>com.criztiandev.extractionevent</groupId>
   <artifactId>extraction-event</artifactId>
-  <version>1.0.1-SNAPSHOT</version>
+  <version>1.0.11-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>ExtractionEvent</name>
   <description>A Minecraft plugin for extraction event mechanics.</description>
@@ -27,6 +27,16 @@
       <id>papermc</id>
       <url>https://repo.papermc.io/repository/maven-public/</url>
     </repository>
+    <!-- ProtocolLib Repository -->
+    <repository>
+      <id>dmulloy2-repo</id>
+      <url>https://repo.dmulloy2.net/repository/public/</url>
+    </repository>
+    <!-- MockBukkit Repository -->
+    <repository>
+      <id>mockbukkit-repo</id>
+      <url>https://repo.mockbukkit.com/public/</url>
+    </repository>
   </repositories>
 
   <dependencies>
@@ -35,6 +45,14 @@
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
       <version>${paper.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- ProtocolLib — for suppressing player-info packets (minimap hiding) -->
+    <dependency>
+      <groupId>com.comphenix.protocol</groupId>
+      <artifactId>ProtocolLib</artifactId>
+      <version>5.3.0</version>
       <scope>provided</scope>
     </dependency>
 
@@ -55,6 +73,20 @@
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
       <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Mockito for unit tests -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.11.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>5.11.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -80,6 +112,8 @@
         <version>3.2.5</version>
         <configuration>
           <useModulePath>false</useModulePath>
+          <!-- Suppress ByteBuddy/Mockito dynamic-agent and class-sharing JVM warnings -->
+          <argLine>-XX:+EnableDynamicAgentLoading -Xshare:off</argLine>
         </configuration>
       </plugin>
 

@@ -4,7 +4,7 @@
 # General settings
 settings:
   debug: false
-  prefix: "&8[&bExtractionEvent&8]&r"
+  prefix: "§8[§bExtractionEvent§8]§r"
 
 # Wand settings
 wand:
@@ -13,3 +13,27 @@ wand:
   lore:
     - "&7Left-Click to set Pos 1"
     - "&7Right-Click to set Pos 2"
+
+# Warzone balance settings
+warzone:
+  # Maximum damage a player can receive from a single hit (Bug 6 — aura/enchant nerf)
+  # Default: 18.0 HP = 9 hearts
+  max-single-hit: 18.0
+
+  # Minimum HP a player is left with after any single hit (Bug 5 — 1-tap prevention)
+  # Default: 0.5 HP = ¼ heart
+  min-survival-hp: 0.5
+
+  # Maximum interaction reach inside the warzone (FreeCam abuse prevention).
+  # Normal survival reach is ~4.5 blocks. We allow 5.5 to give a small tolerance.
+  max-reach: 5.5
+
+  # Distance (in blocks) within which two warzone players can see each other.
+  # Beyond this range they are hidden via hidePlayer() to prevent FreeCam/X-ray stalking.
+  # Default: 48 blocks — enough for PvP, tight enough to block long-range spying.
+  combat-range: 48.0
+
+  # Seconds without any position movement before an AFK player in the warzone
+  # is teleported to world spawn. Head rotation alone does NOT count as movement.
+  # Set to 0 to disable AFK kicking entirely.
+  afk-timeout-seconds: 60

@@ -6,85 +6,64 @@ public class LevRegion {
     private final int minX, maxX, minZ, maxZ;
     private int minY = -64;
     private int maxY = 320;
-    
-    private boolean blockEnderPearl = true;
-    private boolean hideNameTags = true;
-    private boolean lightningOnDeath = true;
+
+    // ── Core toggles (original) ─────────────────────────────────────────────
+    private boolean blockEnderPearl      = true;
+    private boolean hideNameTags         = true;
+    private boolean lightningOnDeath     = true;
+    private boolean spawnMimic           = false;
+
+    // ── Warzone protection toggles ──────────────────────────────────────────
+    private boolean freeCamBlocked       = true;   // FreeCamListener
+    private boolean damageCapped         = true;   // DamageCapListener
+    private boolean enderChestRestricted = true;   // EnderChestListener
+    private boolean killEffectEnabled    = true;   // KillEffectListener lightning
 
     public LevRegion(String id, String world, int minX, int maxX, int minZ, int maxZ) {
-        this.id = id;
+        this.id    = id;
         this.world = world;
-        this.minX = minX;
-        this.maxX = maxX;
-        this.minZ = minZ;
-        this.maxZ = maxZ;
+        this.minX  = minX;
+        this.maxX  = maxX;
+        this.minZ  = minZ;
+        this.maxZ  = maxZ;
     }
 
-    public String getId() {
-        return id;
-    }
+    public String getId()             { return id; }
+    public void   setId(String id)   { this.id = id; }
+    public String getWorld()          { return world; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public int getMinX() { return minX; }
+    public int getMaxX() { return maxX; }
+    public int getMinZ() { return minZ; }
+    public int getMaxZ() { return maxZ; }
+    public int getMinY() { return minY; }
+    public void setMinY(int minY)     { this.minY = minY; }
+    public int getMaxY()              { return maxY; }
+    public void setMaxY(int maxY)     { this.maxY = maxY; }
 
-    public String getWorld() {
-        return world;
-    }
+    // ── Getters / setters for all toggles ───────────────────────────────────
 
-    public int getMinX() {
-        return minX;
-    }
+    public boolean isBlockEnderPearl()            { return blockEnderPearl; }
+    public void    setBlockEnderPearl(boolean v)  { blockEnderPearl = v; }
 
-    public int getMaxX() {
-        return maxX;
-    }
+    public boolean isHideNameTags()               { return hideNameTags; }
+    public void    setHideNameTags(boolean v)     { hideNameTags = v; }
 
-    public int getMinZ() {
-        return minZ;
-    }
+    public boolean isLightningOnDeath()           { return lightningOnDeath; }
+    public void    setLightningOnDeath(boolean v) { lightningOnDeath = v; }
 
-    public int getMaxZ() {
-        return maxZ;
-    }
+    public boolean isSpawnMimic()                 { return spawnMimic; }
+    public void    setSpawnMimic(boolean v)       { spawnMimic = v; }
 
-    public int getMinY() {
-        return minY;
-    }
+    public boolean isFreeCamBlocked()             { return freeCamBlocked; }
+    public void    setFreeCamBlocked(boolean v)   { freeCamBlocked = v; }
 
-    public void setMinY(int minY) {
-        this.minY = minY;
-    }
+    public boolean isDamageCapped()               { return damageCapped; }
+    public void    setDamageCapped(boolean v)     { damageCapped = v; }
 
-    public int getMaxY() {
-        return maxY;
-    }
+    public boolean isEnderChestRestricted()           { return enderChestRestricted; }
+    public void    setEnderChestRestricted(boolean v) { enderChestRestricted = v; }
 
-    public void setMaxY(int maxY) {
-        this.maxY = maxY;
-    }
-
-    public boolean isBlockEnderPearl() {
-        return blockEnderPearl;
-    }
-
-    public void setBlockEnderPearl(boolean blockEnderPearl) {
-        this.blockEnderPearl = blockEnderPearl;
-    }
-
-    public boolean isHideNameTags() {
-        return hideNameTags;
-    }
-
-    public void setHideNameTags(boolean hideNameTags) {
-        this.hideNameTags = hideNameTags;
-    }
-
-    public boolean isLightningOnDeath() {
-        return lightningOnDeath;
-    }
-
-    public void setLightningOnDeath(boolean lightningOnDeath) {
-        this.lightningOnDeath = lightningOnDeath;
-    }
+    public boolean isKillEffectEnabled()          { return killEffectEnabled; }
+    public void    setKillEffectEnabled(boolean v){ killEffectEnabled = v; }
 }

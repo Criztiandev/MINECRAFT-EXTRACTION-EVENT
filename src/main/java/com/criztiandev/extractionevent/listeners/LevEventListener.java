@@ -43,7 +43,6 @@ public class LevEventListener implements Listener {
         // Pearl thrown FROM inside → must land inside the same region
         if (regionFrom != null && regionFrom.isBlockEnderPearl()) {
             if (regionTo == null || !regionTo.getId().equals(regionFrom.getId())) {
-                plugin.getLogger().info("[DEBUG-PEARL] Blocked: Pearling OUT of region " + regionFrom.getId());
                 event.setCancelled(true);
                 player.sendMessage("§c✖ §7You cannot ender pearl out of the warzone!");
                 return;
@@ -53,7 +52,6 @@ public class LevEventListener implements Listener {
         // Pearl landing INTO a restricted region from outside → block it
         if (regionTo != null && regionTo.isBlockEnderPearl()) {
             if (regionFrom == null || !regionFrom.getId().equals(regionTo.getId())) {
-                plugin.getLogger().info("[DEBUG-PEARL] Blocked: Pearling INTO region " + regionTo.getId() + " from outside");
                 event.setCancelled(true);
                 player.sendMessage("§c✖ §7You cannot ender pearl into the warzone from outside!");
             }

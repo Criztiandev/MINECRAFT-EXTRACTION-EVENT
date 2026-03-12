@@ -34,38 +34,35 @@ public class EnderChestListener implements Listener {
     );
 
     private final ExtractionEventPlugin plugin;
-    /** UUIDs of players who currently have a restricted ender chest open. */
-    private final Set<UUID> activeSessions = new HashSet<>();
-
     public EnderChestListener(ExtractionEventPlugin plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onInventoryOpen(InventoryOpenEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) return;
-        if (event.getInventory().getType() != InventoryType.ENDER_CHEST) return;
-
-        // Fast O(1) presence check
-        if (!plugin.getRegionPresenceTask().isInAnyRegion(player.getUniqueId())) return;
-
+    private boolean isRestricted(Player player) {
+        if (!plugin.getRegionPresenceTask().isInAnyRegion(player.getUniqueId())) return false;
         LevRegion region = plugin.getRegionPresenceTask().getCachedRegion(player.getUniqueId());
-        if (region == null || !region.isEnderChestRestricted()) return;
+        if (region == null || !region.isEnderChestRestricted()) return false;
 
-        // Admins bypass restrictions unless they opted in to test mode
         if (player.hasPermission("extractionevent.admin") && !plugin.isTestMode(player.getUniqueId())) {
-            return;
+            return false;
         }
 
-        // Allow the open — start tracking deposits only
-        activeSessions.add(player.getUniqueId());
+        return true;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!activeSessions.contains(player.getUniqueId())) return;
-        if (event.getClickedInventory() == null) return;
+        
+        if (event.getView().getTopInventory().getType() != InventoryType.ENDER_CHEST) return;
+        
+        if (!isRestricted(player)){
+             return;
+        }
+
+        if (event.getClickedInventory() == null){
+            return;
+        }
 
         InventoryAction action = event.getAction();
         boolean clickedEnderChest = event.getClickedInventory().getType() == InventoryType.ENDER_CHEST;
@@ -74,8 +71,7 @@ public class EnderChestListener implements Listener {
         boolean isDeposit = clickedEnderChest && DEPOSIT_ACTIONS.contains(action);
 
         // Shift-click from player inventory → ender chest (MOVE_TO_OTHER_INVENTORY goes to ender chest)
-        boolean isShiftDeposit = !clickedEnderChest
-                && action == InventoryAction.MOVE_TO_OTHER_INVENTORY;
+        boolean isShiftDeposit = !clickedEnderChest && action == InventoryAction.MOVE_TO_OTHER_INVENTORY;
 
         if (isDeposit || isShiftDeposit) {
             event.setCancelled(true);
@@ -83,8 +79,25 @@ public class EnderChestListener implements Listener {
         }
     }
 
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent event) {
-        activeSessions.remove(event.getPlayer().getUniqueId());
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInventoryDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        
+        if (event.getView().getTopInventory().getType() != InventoryType.ENDER_CHEST) return;
+        if (!isRestricted(player)) return;
+
+        // If any raw slot id being dragged into belongs to the TOP inventory (Ender Chest slots are 0-26)
+        boolean draggingIntoEnderChest = false;
+        for (int rawSlot : event.getRawSlots()) {
+            if (rawSlot < event.getView().getTopInventory().getSize()) {
+                draggingIntoEnderChest = true;
+                break;
+            }
+        }
+
+        if (draggingIntoEnderChest) {
+            event.setCancelled(true);
+            player.sendMessage("§c✖ §7You cannot store items in the Ender Chest inside the warzone!");
+        }
     }
 }

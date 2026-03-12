@@ -48,33 +48,6 @@ class EnderChestListenerTest {
         listener = new EnderChestListener(plugin);
     }
 
-    @Test
-    void openEnderChest_inRestrictedRegion_shouldBeCancelled() {
-        when(presenceTask.isInAnyRegion(playerId)).thenReturn(true);
-        when(presenceTask.getCachedRegion(playerId)).thenReturn(region);
-        when(region.isEnderChestRestricted()).thenReturn(true);
-
-        Inventory inv = mock(Inventory.class);
-        InventoryOpenEvent event = mock(InventoryOpenEvent.class);
-        when(event.getPlayer()).thenReturn(player);
-        when(event.getInventory()).thenReturn(inv);
-
-        listener.onInventoryOpen(event);
-
-        verify(event).setCancelled(true);
-    }
-
-    @Test
-    void openEnderChest_outsideRegion_shouldNotBeCancelled() {
-        when(presenceTask.isInAnyRegion(playerId)).thenReturn(false);
-
-        Inventory inv = mock(Inventory.class);
-        InventoryOpenEvent event = mock(InventoryOpenEvent.class);
-        when(event.getPlayer()).thenReturn(player);
-        when(event.getInventory()).thenReturn(inv);
-
-        listener.onInventoryOpen(event);
-
-        verify(event, never()).setCancelled(true);
-    }
+    // Tests for onInventoryOpen removed because the listener now exclusively 
+    // checks top inventory state during InventoryClickEvent and InventoryDragEvent.
 }

@@ -62,7 +62,7 @@ public class KillEffectListener implements Listener {
         }
 
         for (Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
-            if (p.hasPermission("extractionevent.admin")) {
+            if (p.hasPermission("extractionevent.admin") && !plugin.isTestMode(p.getUniqueId())) {
                 p.sendMessage(adminMsg);
             }
         }

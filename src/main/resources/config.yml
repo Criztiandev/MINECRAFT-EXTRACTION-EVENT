@@ -37,3 +37,10 @@ warzone:
   # is teleported to world spawn. Head rotation alone does NOT count as movement.
   # Set to 0 to disable AFK kicking entirely.
   afk-timeout-seconds: 60
+
+  # Name of the Legendary extraction chest that triggers a global Warzone Shift
+  legend-chest-name: "LegendChest"
+  
+  # Duration of the Warzone Shift triggered by the Legend chest (in seconds)
+  # Default: 3600 (1 hour)
+  warzone-shift-duration: 3600

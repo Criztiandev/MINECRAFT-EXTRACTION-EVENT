@@ -6,12 +6,16 @@ import com.criztiandev.extractionevent.listeners.DamageCapListener;
 import com.criztiandev.extractionevent.listeners.EnderChestListener;
 import com.criztiandev.extractionevent.listeners.FreeCamListener;
 import com.criztiandev.extractionevent.listeners.KillEffectListener;
+import com.criztiandev.extractionevent.listeners.LegendChestListener;
+import com.criztiandev.extractionevent.listeners.EnvoyEventListener;
 import com.criztiandev.extractionevent.listeners.LevEventListener;
 import com.criztiandev.extractionevent.listeners.RegionWandListener;
+import com.criztiandev.extractionevent.listeners.AnonymousChatListener;
 import com.criztiandev.extractionevent.managers.MimicManager;
 import com.criztiandev.extractionevent.managers.MinimapHideManager;
 import com.criztiandev.extractionevent.managers.NameTagManager;
 import com.criztiandev.extractionevent.managers.RegionManager;
+import com.criztiandev.extractionevent.managers.WarzoneShiftManager;
 import com.criztiandev.extractionevent.storage.JsonStorageProvider;
 import com.criztiandev.extractionevent.storage.StorageProvider;
 import com.criztiandev.extractionevent.tasks.MimicSpawnTask;
@@ -34,18 +38,26 @@ public class ExtractionEventPlugin extends JavaPlugin {
     private RegionPresenceTask regionPresenceTask;
     private MimicSpawnTask     mimicSpawnTask;
     private WarzoneAfkTask     warzoneAfkTask;
+    private WarzoneShiftManager warzoneShiftManager;
 
     /** Admins who opted into test mode — they are treated as regular players for restriction checks. */
     private final Set<UUID> testModeAdmins = new HashSet<>();
 
     @Override
     public void onEnable() {
+        // ── Dependency Checks ────────────────────────────────────────────────
+        if (!checkDependencies()) {
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         saveDefaultConfig();
 
         storageProvider = new JsonStorageProvider(this);
         regionManager   = new RegionManager(this);
         nameTagManager  = new NameTagManager(this);
         mimicManager    = new MimicManager(this);
+        warzoneShiftManager = new WarzoneShiftManager(this);
 
         if (Bukkit.getPluginManager().getPlugin("ProtocolLib") != null) {
             minimapHideManager = new MinimapHideManager(this);
@@ -64,6 +76,11 @@ public class ExtractionEventPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new FreeCamListener(this),   this);
         getServer().getPluginManager().registerEvents(new DamageCapListener(this), this);
         getServer().getPluginManager().registerEvents(new KillEffectListener(this),this);
+        getServer().getPluginManager().registerEvents(new LegendChestListener(this), this);
+        getServer().getPluginManager().registerEvents(new AnonymousChatListener(this), this);
+        
+        // Register reflection-based AdvancedEnchantments listener
+        new EnvoyEventListener(this);
 
         // ── Commands ──────────────────────────────────────────────────────────
         LevCommand levCommand = new LevCommand(this);
@@ -81,6 +98,8 @@ public class ExtractionEventPlugin extends JavaPlugin {
         warzoneAfkTask = new WarzoneAfkTask(this);
         getServer().getPluginManager().registerEvents(warzoneAfkTask, this);
         warzoneAfkTask.runTaskTimer(this, 40L, 20L); // check every 1 s, first run after 2 s
+
+        warzoneShiftManager.startTask();
 
         getLogger().info("ExtractionEvent enabled!");
     }
@@ -133,6 +152,9 @@ public class ExtractionEventPlugin extends JavaPlugin {
         if (nameTagManager != null) {
             nameTagManager.cleanup();
         }
+        if (warzoneShiftManager != null) {
+            warzoneShiftManager.cleanup();
+        }
     }
 
     public StorageProvider    getStorageProvider()   { return storageProvider; }
@@ -140,6 +162,7 @@ public class ExtractionEventPlugin extends JavaPlugin {
     public NameTagManager     getNameTagManager()    { return nameTagManager; }
     public MimicManager       getMimicManager()      { return mimicManager; }
     public MinimapHideManager getMinimapHideManager(){ return minimapHideManager; }
+    public WarzoneShiftManager getWarzoneShiftManager(){ return warzoneShiftManager; }
     public RegionPresenceTask getRegionPresenceTask(){ return regionPresenceTask; }
 
     /** @return true if this admin has test mode ON (treats them as a normal player). */
@@ -150,5 +173,30 @@ public class ExtractionEventPlugin extends JavaPlugin {
         if (testModeAdmins.remove(uuid)) return false;
         testModeAdmins.add(uuid);
         return true;
+    }
+
+    /** Validates that all required third-party plugins are loaded before continuing initialization. */
+    private boolean checkDependencies() {
+        boolean allGood = true;
+        
+        // Critical dependencies
+        if (Bukkit.getPluginManager().getPlugin("ExtractionChest") == null) {
+            getLogger().severe("========================================");
+            getLogger().severe("CRITICAL ERROR: ExtractionChest dependency is missing!");
+            getLogger().severe("ExtractionEvent depends on ExtractionChest to function.");
+            getLogger().severe("Please install ExtractionChest. Disabling plugin...");
+            getLogger().severe("========================================");
+            allGood = false;
+        }
+
+        // Soft/feature-specific dependencies
+        if (Bukkit.getPluginManager().getPlugin("AdvancedEnchantments") == null) {
+            getLogger().warning("========================================");
+            getLogger().warning("WARNING: AdvancedEnchantments dependency is missing!");
+            getLogger().warning("The Envoy Event/Warzone Shift will NOT be able to disable custom enchants.");
+            getLogger().warning("========================================");
+        }
+
+        return allGood;
     }
 }

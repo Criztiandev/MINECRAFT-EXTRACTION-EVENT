@@ -1,6 +1,6 @@
 {
   "name": "extraction-event",
-  "version": "1.0.11",
+  "version": "1.0.21",
   "description": "Minecraft plugin development tooling for ExtractionEvent",
   "private": true,
   "scripts": {

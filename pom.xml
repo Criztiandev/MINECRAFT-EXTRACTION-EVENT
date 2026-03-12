@@ -6,7 +6,7 @@
 
   <groupId>com.criztiandev.extractionevent</groupId>
   <artifactId>extraction-event</artifactId>
-  <version>1.0.11-SNAPSHOT</version>
+  <version>1.0.21-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>ExtractionEvent</name>
   <description>A Minecraft plugin for extraction event mechanics.</description>
@@ -32,11 +32,6 @@
       <id>dmulloy2-repo</id>
       <url>https://repo.dmulloy2.net/repository/public/</url>
     </repository>
-    <!-- MockBukkit Repository -->
-    <repository>
-      <id>mockbukkit-repo</id>
-      <url>https://repo.mockbukkit.com/public/</url>
-    </repository>
   </repositories>
 
   <dependencies>
@@ -53,6 +48,14 @@
       <groupId>com.comphenix.protocol</groupId>
       <artifactId>ProtocolLib</artifactId>
       <version>5.3.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Extraction Chest Core -->
+    <dependency>
+      <groupId>com.criztiandev.extractionchest</groupId>
+      <artifactId>extraction-chest</artifactId>
+      <version>1.0.102-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
 

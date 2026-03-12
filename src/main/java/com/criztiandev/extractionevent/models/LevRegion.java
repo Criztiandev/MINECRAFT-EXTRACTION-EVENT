@@ -18,6 +18,7 @@ public class LevRegion {
     private boolean damageCapped         = true;   // DamageCapListener
     private boolean enderChestRestricted = true;   // EnderChestListener
     private boolean killEffectEnabled    = true;   // KillEffectListener lightning
+    private boolean envoyEventEnabled    = false;  // Disables AdvancedEnchantments in region
 
     public LevRegion(String id, String world, int minX, int maxX, int minZ, int maxZ) {
         this.id    = id;
@@ -66,4 +67,7 @@ public class LevRegion {
 
     public boolean isKillEffectEnabled()          { return killEffectEnabled; }
     public void    setKillEffectEnabled(boolean v){ killEffectEnabled = v; }
+
+    public boolean isEnvoyEventEnabled()          { return envoyEventEnabled; }
+    public void    setEnvoyEventEnabled(boolean v){ envoyEventEnabled = v; }
 }

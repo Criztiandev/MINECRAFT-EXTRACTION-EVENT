@@ -36,7 +36,7 @@ public class FreeCamListener implements Listener {
     public void onGameModeChange(PlayerGameModeChangeEvent event) {
         if (event.getNewGameMode() != GameMode.SPECTATOR) return;
         Player player = event.getPlayer();
-        if (player.hasPermission(BYPASS_PERMISSION)) return;
+        if (player.hasPermission(BYPASS_PERMISSION) && !plugin.isTestMode(player.getUniqueId())) return;
         if (!isInWarzone(player)) return;
 
         event.setCancelled(true);
@@ -51,7 +51,7 @@ public class FreeCamListener implements Listener {
         if (player.getGameMode() == GameMode.CREATIVE) return;
         if (player.getGameMode() == GameMode.SPECTATOR) return;
         if (!event.isFlying()) return;
-        if (player.hasPermission(BYPASS_PERMISSION)) return;
+        if (player.hasPermission(BYPASS_PERMISSION) && !plugin.isTestMode(player.getUniqueId())) return;
         if (!isInWarzone(player)) return;
 
         event.setCancelled(true);
@@ -65,57 +65,66 @@ public class FreeCamListener implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getClickedBlock() == null) return;
         Player player = event.getPlayer();
-        if (player.hasPermission(BYPASS_PERMISSION)) return;
+        if (player.hasPermission(BYPASS_PERMISSION) && !plugin.isTestMode(player.getUniqueId())) return;
         if (!isInWarzone(player)) return;
 
         double distSq = event.getClickedBlock().getLocation()
                 .add(0.5, 0.5, 0.5)
                 .distanceSquared(player.getEyeLocation());
         if (distSq > maxReachSq) {
-            event.setCancelled(true);
-            player.sendMessage("§cYou cannot interact with objects that far away!");
+            // Only cancel and warn if they are actually in a suspicious gamemode or flying
+            if (player.getGameMode() == GameMode.SPECTATOR || player.isFlying()) {
+                event.setCancelled(true);
+                player.sendMessage("§cYou cannot interact with objects that far away!");
+            }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
-        if (player.hasPermission(BYPASS_PERMISSION)) return;
+        if (player.hasPermission(BYPASS_PERMISSION) && !plugin.isTestMode(player.getUniqueId())) return;
         if (!isInWarzone(player)) return;
 
         double distSq = event.getRightClicked().getLocation()
                 .distanceSquared(player.getEyeLocation());
         if (distSq > maxReachSq) {
-            event.setCancelled(true);
-            player.sendMessage("§cYou cannot interact with entities that far away!");
+            if (player.getGameMode() == GameMode.SPECTATOR || player.isFlying()) {
+                event.setCancelled(true);
+                player.sendMessage("§cYou cannot interact with entities that far away!");
+            }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
         Player player = event.getPlayer();
-        if (player.hasPermission(BYPASS_PERMISSION)) return;
+        if (player.hasPermission(BYPASS_PERMISSION) && !plugin.isTestMode(player.getUniqueId())) return;
         if (!isInWarzone(player)) return;
 
         double distSq = event.getRightClicked().getLocation()
                 .distanceSquared(player.getEyeLocation());
         if (distSq > maxReachSq) {
-            event.setCancelled(true);
+            if (player.getGameMode() == GameMode.SPECTATOR || player.isFlying()) {
+                event.setCancelled(true);
+            }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        if (player.hasPermission(BYPASS_PERMISSION)) return;
+        if (player.hasPermission(BYPASS_PERMISSION) && !plugin.isTestMode(player.getUniqueId())) return;
         if (!isInWarzone(player)) return;
 
         double distSq = event.getBlock().getLocation()
                 .add(0.5, 0.5, 0.5)
                 .distanceSquared(player.getEyeLocation());
         if (distSq > maxReachSq) {
-            event.setCancelled(true);
-            player.sendMessage("§cYou cannot break blocks that far away!");
+            if (player.getGameMode() == GameMode.SPECTATOR || player.isFlying()) {
+                event.setCancelled(true);
+                player.sendMessage("§cYou cannot break blocks that far away!");
+            }
         }
     }
 

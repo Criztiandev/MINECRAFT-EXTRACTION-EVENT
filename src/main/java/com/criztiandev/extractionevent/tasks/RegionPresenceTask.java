@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,11 +29,19 @@ public class RegionPresenceTask extends BukkitRunnable {
     /**
      * Pair visibility set — encodes (playerA, playerB) pairs that are currently hidden
      * from each other due to distance. Using long keys instead of String eliminates
-     * ~n*(n-1)/2 String allocations per tick (up to 3,160 at 80 warzone players).
+     * ~n*(n-1)/2 String allocations per tick (up to 4,950 at 100 warzone players).
      */
     private Set<Long> hiddenPairs = new HashSet<>(256);
 
     private final double combatRangeSq;
+
+    /**
+     * Pair-visibility is O(n²) over warzone players.
+     * At 100 players that is 4,950 iterations. We throttle it to every 2 seconds
+     * (every other invocation of run()) since sub-2s radar updates are imperceptible.
+     */
+    private int tickCount = 0;
+    private static final int VISIBILITY_TICKS = 2; // run visibility pass every N run() calls
 
     public RegionPresenceTask(ExtractionEventPlugin plugin) {
         this.plugin = plugin;
@@ -42,51 +51,53 @@ public class RegionPresenceTask extends BukkitRunnable {
 
     @Override
     public void run() {
-        // ── Pass 1: locate each player in a region, build warzone list ────────
-        Map<UUID, LevRegion> newSnapshot = new HashMap<>(Bukkit.getOnlinePlayers().size() * 2);
-        List<Player> warzonePlayers = new ArrayList<>(80);
+        tickCount++;
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            LevRegion region = plugin.getRegionManager().getRegionAt(player.getLocation());
-            if (region != null) {
-                newSnapshot.put(player.getUniqueId(), region);
-                warzonePlayers.add(player);
-            }
-        }
+        // ── Single-pass: locate each player + detect changes ─────────────────
+        // Snapshot online players once — avoids two separate Bukkit calls
+        Collection<? extends Player> online = Bukkit.getOnlinePlayers();
 
-        // ── Pass 2: detect region changes and apply name-tag / visibility rules ─
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        Map<UUID, LevRegion>  newSnapshot     = new HashMap<>(online.size() * 2);
+        List<Player>           warzonePlayers  = new ArrayList<>(80);
+
+        for (Player player : online) {
+            // Cache location locally — avoids two getLocation() calls per player
+            org.bukkit.Location loc = player.getLocation();
+            LevRegion region = plugin.getRegionManager().getRegionAt(loc);
+
             UUID      uuid      = player.getUniqueId();
-            LevRegion newRegion = newSnapshot.get(uuid);
             LevRegion oldRegion = playerRegionCache.get(uuid);
 
-            boolean wasInHideRegion = oldRegion != null && oldRegion.isHideNameTags();
-            boolean isInHideRegion  = newRegion != null && newRegion.isHideNameTags();
+            if (region != null) {
+                newSnapshot.put(uuid, region);
+                warzonePlayers.add(player);
+            }
 
-            // Apply / remove name-tag concealment only when state actually changes
+            // Detect state change — only when it actually changes
+            boolean wasInHideRegion = oldRegion != null && oldRegion.isHideNameTags();
+            boolean isInHideRegion  = region   != null && region.isHideNameTags();
+
             if (isInHideRegion && !wasInHideRegion) {
-                // Entered a hide-nametags region → conceal
                 plugin.getNameTagManager().hideNameTag(player);
             } else if (!isInHideRegion && wasInHideRegion) {
-                // Left a hide-nametags region → restore
                 plugin.getNameTagManager().restoreNameTag(player);
             }
 
-            // Minimap hide/show — fire on any region change (enter / leave / switch)
-            boolean regionChanged = (newRegion != null) != (oldRegion != null)
-                    || (newRegion != null && !newRegion.getId().equals(
+            // Minimap hide/show — only on actual region change
+            boolean regionChanged = (region != null) != (oldRegion != null)
+                    || (region != null && !region.getId().equals(
                             oldRegion != null ? oldRegion.getId() : null));
 
             if (regionChanged && plugin.getMinimapHideManager() != null) {
-                if (newRegion != null) {
-                    plugin.getMinimapHideManager().onPlayerEnterRegion(player, newRegion);
+                if (region != null) {
+                    plugin.getMinimapHideManager().onPlayerEnterRegion(player, region);
                 } else {
                     plugin.getMinimapHideManager().onPlayerLeaveRegion(player, oldRegion);
                 }
             }
 
-            // Restore combat visibility for players who just left the warzone entirely
-            if (oldRegion != null && newRegion == null) {
+            // Restore combat visibility for players who just left the warzone
+            if (oldRegion != null && region == null) {
                 for (Player wz : warzonePlayers) {
                     wz.showPlayer(plugin, player);
                     player.showPlayer(plugin, wz);
@@ -94,17 +105,35 @@ public class RegionPresenceTask extends BukkitRunnable {
             }
         }
 
-        // ── Pass 3: combat-range visibility for warzone players (O(n²) over wz) ─
-        Set<Long> newHiddenPairs = new HashSet<>(hiddenPairs.size() + 16);
+        // ── Throttled O(n²) visibility pass ──────────────────────────────────
+        // Only run every VISIBILITY_TICKS calls (~every 2s when scheduled at 1s).
+        // At 100 warzone players this saves ~4,900 iterations per second.
+        if (tickCount >= VISIBILITY_TICKS) {
+            tickCount = 0;
+            runVisibilityPass(warzonePlayers);
+        }
+
+        // Swap caches
+        playerRegionCache.clear();
+        playerRegionCache.putAll(newSnapshot);
+    }
+
+    private void runVisibilityPass(List<Player> warzonePlayers) {
         int count = warzonePlayers.size();
+        if (count < 2) return; // Nothing to hide if 0 or 1 player
+
+        Set<Long> newHiddenPairs = new HashSet<>(hiddenPairs.size() + 16);
 
         for (int i = 0; i < count; i++) {
             Player a = warzonePlayers.get(i);
+            org.bukkit.Location la = a.getLocation();
+
             for (int j = i + 1; j < count; j++) {
                 Player b = warzonePlayers.get(j);
-                if (!a.getWorld().equals(b.getWorld())) continue;
 
-                double distSq  = a.getLocation().distanceSquared(b.getLocation());
+                if (!la.getWorld().equals(b.getWorld())) continue;
+
+                double distSq  = la.distanceSquared(b.getLocation());
                 long   pairKey = pairKey(a.getUniqueId(), b.getUniqueId());
 
                 if (distSq > combatRangeSq) {
@@ -123,8 +152,6 @@ public class RegionPresenceTask extends BukkitRunnable {
         }
 
         hiddenPairs = newHiddenPairs;
-        playerRegionCache.clear();
-        playerRegionCache.putAll(newSnapshot);
     }
 
     // ── Public API for listeners ──────────────────────────────────────────────
@@ -134,42 +161,46 @@ public class RegionPresenceTask extends BukkitRunnable {
         return playerRegionCache.containsKey(uuid);
     }
 
+    /** Returns the cached region the player is in, or null if outside. */
+    public LevRegion getCachedRegion(UUID uuid) {
+        return playerRegionCache.get(uuid);
+    }
+
     /** Returns the cached region id the player is in, or null. */
     public String getCachedRegionId(UUID uuid) {
         LevRegion r = playerRegionCache.get(uuid);
         return r != null ? r.getId() : null;
     }
 
-    /** Returns the cached LevRegion for the player, or null if outside all regions. */
-    public LevRegion getCachedRegion(UUID uuid) {
-        return playerRegionCache.get(uuid);
+    /**
+     * Returns all players currently cached as being inside a given region.
+     * Used by MinimapHideManager to avoid a redundant spatial scan.
+     */
+    public List<Player> getCachedPlayersInRegion(LevRegion region) {
+        List<Player> result = new ArrayList<>();
+        for (Map.Entry<UUID, LevRegion> entry : playerRegionCache.entrySet()) {
+            if (entry.getValue().getId().equals(region.getId())) {
+                Player p = Bukkit.getPlayer(entry.getKey());
+                if (p != null) result.add(p);
+            }
+        }
+        return result;
     }
 
     // ── Pair-key encoding (zero String allocations) ───────────────────────────
 
     /**
      * Encodes a canonical, order-independent pair of two UUIDs as a single {@code long}.
-     *
-     * <p>Each UUID is folded to a {@code long} by XOR-ing its two 64-bit halves.
-     * The two resulting longs are then combined so that {@code pairKey(a,b) == pairKey(b,a)}.
-     *
-     * <p><b>Collision risk:</b> extremely low for the expected scale (≤ 100 players,
-     * at most 4,950 pairs). The construction is not cryptographically collision-free,
-     * but is safe for a warzone visibility cache where a false positive only causes a
-     * benign extra {@code showPlayer/hidePlayer} call.
      */
     static long pairKey(UUID a, UUID b) {
         long la = a.getMostSignificantBits() ^ a.getLeastSignificantBits();
         long lb = b.getMostSignificantBits() ^ b.getLeastSignificantBits();
-        // Canonical order: put the smaller value "first" so pairKey(a,b) == pairKey(b,a)
         long lo = Math.min(la, lb);
         long hi = Math.max(la, lb);
-        // Mix with a Fibonacci hashing constant keep distribution uniform
         return lo * 0x9e3779b97f4a7c15L ^ hi;
     }
 
     // ── Package-visible for tests ─────────────────────────────────────────────
-
     double getCombatRangeSq() { return combatRangeSq; }
     Set<Long> getHiddenPairs() { return hiddenPairs; }
 }

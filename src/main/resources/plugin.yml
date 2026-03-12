@@ -6,7 +6,8 @@ author: criztiandev
 description: A Minecraft plugin for extraction event mechanics.
 website: https://github.com/criztiandev/extraction-event
 
-soft-depend: [ProtocolLib]
+depend: [ExtractionChest]
+soft-depend: [ProtocolLib, AdvancedEnchantments]
 
 commands:
   lrev:

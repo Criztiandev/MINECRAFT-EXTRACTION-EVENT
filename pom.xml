@@ -6,7 +6,7 @@
 
   <groupId>com.criztiandev.extractionevent</groupId>
   <artifactId>extraction-event</artifactId>
-  <version>1.0.21-SNAPSHOT</version>
+  <version>1.0.40-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>ExtractionEvent</name>
   <description>A Minecraft plugin for extraction event mechanics.</description>
@@ -48,6 +48,14 @@
       <groupId>com.comphenix.protocol</groupId>
       <artifactId>ProtocolLib</artifactId>
       <version>5.3.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- MinimapControl — server-side Xaero/JourneyMap/VoxelMap radar control -->
+    <dependency>
+      <groupId>com.funniray</groupId>
+      <artifactId>minimap-spigot</artifactId>
+      <version>1.17.0</version>
       <scope>provided</scope>
     </dependency>
 

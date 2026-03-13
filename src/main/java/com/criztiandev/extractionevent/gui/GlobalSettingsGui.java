@@ -20,9 +20,10 @@ public class GlobalSettingsGui implements Gui {
 
     static final String TITLE = "§8✦ §cGlobal Settings §8✦";
 
-    private static final int SIZE = 27;
-    private static final int TEST_MODE_SLOT = 13;
-    private static final int BACK_SLOT = 18;
+    private static final int SIZE          = 36;
+    private static final int TEST_MODE_SLOT = 12;
+    private static final int LOCKDOWN_SLOT  = 14;
+    private static final int BACK_SLOT      = 27;
 
     private final ExtractionEventPlugin plugin;
     private final Inventory inventory;
@@ -36,8 +37,14 @@ public class GlobalSettingsGui implements Gui {
         for (int i = 0; i < SIZE; i++) inventory.setItem(i, null);
 
         ItemStack border = makeItem(Material.BLACK_STAINED_GLASS_PANE, " ");
-        for (int i = 0; i < 9; i++) inventory.setItem(i, border);
-        for (int i = 18; i < 27; i++) inventory.setItem(i, border);
+        for (int i = 0; i < 9; i++)  inventory.setItem(i, border);
+        for (int i = 27; i < 36; i++) inventory.setItem(i, border);
+
+        // Fill middle rows with inner filler
+        ItemStack inner = makeItem(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int i = 9; i < 27; i++) {
+            if (inventory.getItem(i) == null) inventory.setItem(i, inner);
+        }
 
         boolean isTestMode = plugin.isTestMode(player.getUniqueId());
         
@@ -55,6 +62,33 @@ public class GlobalSettingsGui implements Gui {
                 "§7Status: " + status,
                 "",
                 "§eClick to toggle!"));
+
+        // Lockdown & KOTH button — reflects live state
+        var lm = plugin.getLockdownManager();
+        Material lockMat;
+        String lockName;
+        String lockStatus;
+        if (lm.isLockdownActive()) {
+            lockMat    = Material.RED_CONCRETE;
+            lockName   = "§4§l🔒 Lockdown & KOTH";
+            lockStatus = "§4LOCKDOWN ACTIVE";
+        } else if (lm.isKothActive()) {
+            lockMat    = Material.ORANGE_CONCRETE;
+            lockName   = "§6§l⚔ Lockdown & KOTH";
+            lockStatus = "§6KOTH: §a" + lm.getKothRegionId();
+        } else {
+            lockMat    = Material.LIME_CONCRETE;
+            lockName   = "§a§l🔓 Lockdown & KOTH";
+            lockStatus = "§aAll Clear";
+        }
+        inventory.setItem(LOCKDOWN_SLOT, makeItem(lockMat,
+                lockName,
+                "§7Instantly lock extraction points",
+                "§7or run a King of the Hill event.",
+                "",
+                "§7Status: " + lockStatus,
+                "",
+                "§eClick to manage!"));
 
         inventory.setItem(BACK_SLOT, makeItem(Material.ARROW, "§cBack", "§7Return to main menu."));
     }
@@ -79,7 +113,8 @@ public class GlobalSettingsGui implements Gui {
                 plugin.toggleTestMode(player.getUniqueId());
                 render(player);
             }
-            case BACK_SLOT -> new MainMenuGui(plugin).open(player);
+            case LOCKDOWN_SLOT -> new LockdownGui(plugin).open(player);
+            case BACK_SLOT     -> new MainMenuGui(plugin).open(player);
         }
     }
 

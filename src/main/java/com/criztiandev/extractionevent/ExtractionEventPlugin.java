@@ -11,12 +11,16 @@ import com.criztiandev.extractionevent.listeners.EnvoyEventListener;
 import com.criztiandev.extractionevent.listeners.LevEventListener;
 import com.criztiandev.extractionevent.listeners.RegionWandListener;
 import com.criztiandev.extractionevent.listeners.AnonymousChatListener;
+import com.criztiandev.extractionevent.managers.AdminMonitorManager;
+import com.criztiandev.extractionevent.managers.LockdownManager;
 import com.criztiandev.extractionevent.managers.MimicManager;
 import com.criztiandev.extractionevent.managers.MinimapHideManager;
 import com.criztiandev.extractionevent.managers.NameTagManager;
 import com.criztiandev.extractionevent.managers.RegionManager;
 import com.criztiandev.extractionevent.managers.WarzoneShiftManager;
+import com.criztiandev.extractionevent.managers.XaeroFairPlayManager;
 import com.criztiandev.extractionevent.storage.JsonStorageProvider;
+import com.criztiandev.extractionevent.storage.StateStore;
 import com.criztiandev.extractionevent.storage.StorageProvider;
 import com.criztiandev.extractionevent.tasks.MimicSpawnTask;
 import com.criztiandev.extractionevent.tasks.RegionPresenceTask;
@@ -35,10 +39,14 @@ public class ExtractionEventPlugin extends JavaPlugin {
     private NameTagManager     nameTagManager;
     private MimicManager       mimicManager;
     private MinimapHideManager minimapHideManager;
+    private XaeroFairPlayManager xaeroFairPlayManager;
     private RegionPresenceTask regionPresenceTask;
     private MimicSpawnTask     mimicSpawnTask;
     private WarzoneAfkTask     warzoneAfkTask;
     private WarzoneShiftManager warzoneShiftManager;
+    private AdminMonitorManager adminMonitorManager;
+    private LockdownManager     lockdownManager;
+    private StateStore          stateStore;
 
     /** Admins who opted into test mode — they are treated as regular players for restriction checks. */
     private final Set<UUID> testModeAdmins = new HashSet<>();
@@ -53,11 +61,14 @@ public class ExtractionEventPlugin extends JavaPlugin {
 
         saveDefaultConfig();
 
-        storageProvider = new JsonStorageProvider(this);
-        regionManager   = new RegionManager(this);
-        nameTagManager  = new NameTagManager(this);
-        mimicManager    = new MimicManager(this);
-        warzoneShiftManager = new WarzoneShiftManager(this);
+        storageProvider       = new JsonStorageProvider(this);
+        stateStore            = new StateStore(this);
+        regionManager         = new RegionManager(this);
+        nameTagManager        = new NameTagManager(this);
+        mimicManager          = new MimicManager(this);
+        warzoneShiftManager   = new WarzoneShiftManager(this);
+        adminMonitorManager   = new AdminMonitorManager();
+        lockdownManager       = new LockdownManager(this);
 
         if (Bukkit.getPluginManager().getPlugin("ProtocolLib") != null) {
             minimapHideManager = new MinimapHideManager(this);
@@ -65,6 +76,7 @@ public class ExtractionEventPlugin extends JavaPlugin {
         } else {
             getLogger().warning("ProtocolLib not found — minimap hiding uses name-only mode.");
         }
+        xaeroFairPlayManager = new XaeroFairPlayManager(this);
 
         regionManager.loadAll();
 
@@ -100,6 +112,13 @@ public class ExtractionEventPlugin extends JavaPlugin {
         warzoneAfkTask.runTaskTimer(this, 40L, 20L); // check every 1 s, first run after 2 s
 
         warzoneShiftManager.startTask();
+
+        // Restore persisted state (lockdown mode, warzone shifts) AFTER all managers are ready
+        Bukkit.getScheduler().runTask(this, () -> {
+            StateStore.State state = stateStore.load();
+            lockdownManager.restoreState(state);
+            warzoneShiftManager.restoreState(state);
+        });
 
         getLogger().info("ExtractionEvent enabled!");
     }
@@ -153,17 +172,31 @@ public class ExtractionEventPlugin extends JavaPlugin {
             nameTagManager.cleanup();
         }
         if (warzoneShiftManager != null) {
+            // Persist active shifts before the manager clears them
+            if (stateStore != null) {
+                StateStore.State state = new StateStore.State();
+                lockdownManager.captureState(state);
+                warzoneShiftManager.captureState(state);
+                stateStore.save(state);
+            }
             warzoneShiftManager.cleanup();
+        }
+        if (xaeroFairPlayManager != null) {
+            xaeroFairPlayManager.cleanup();
         }
     }
 
-    public StorageProvider    getStorageProvider()   { return storageProvider; }
-    public RegionManager      getRegionManager()     { return regionManager; }
-    public NameTagManager     getNameTagManager()    { return nameTagManager; }
-    public MimicManager       getMimicManager()      { return mimicManager; }
-    public MinimapHideManager getMinimapHideManager(){ return minimapHideManager; }
-    public WarzoneShiftManager getWarzoneShiftManager(){ return warzoneShiftManager; }
-    public RegionPresenceTask getRegionPresenceTask(){ return regionPresenceTask; }
+    public StorageProvider      getStorageProvider()        { return storageProvider; }
+    public StateStore           getStateStore()             { return stateStore; }
+    public RegionManager        getRegionManager()          { return regionManager; }
+    public NameTagManager       getNameTagManager()         { return nameTagManager; }
+    public MimicManager         getMimicManager()           { return mimicManager; }
+    public MinimapHideManager   getMinimapHideManager()     { return minimapHideManager; }
+    public XaeroFairPlayManager getXaeroFairPlayManager()   { return xaeroFairPlayManager; }
+    public WarzoneShiftManager  getWarzoneShiftManager()    { return warzoneShiftManager; }
+    public RegionPresenceTask   getRegionPresenceTask()     { return regionPresenceTask; }
+    public AdminMonitorManager  getAdminMonitorManager()    { return adminMonitorManager; }
+    public LockdownManager      getLockdownManager()        { return lockdownManager; }
 
     /** @return true if this admin has test mode ON (treats them as a normal player). */
     public boolean isTestMode(UUID uuid) { return testModeAdmins.contains(uuid); }

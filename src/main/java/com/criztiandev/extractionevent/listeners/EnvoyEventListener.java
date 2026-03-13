@@ -79,12 +79,9 @@ public class EnvoyEventListener implements Listener {
     }
 
     private void onAEEvent(Event event) {
-        // Fast-fail check: if nothing is suppressed, skip all coordinate math
-        if (!plugin.getWarzoneShiftManager().isAnyShiftActive()) {
-            boolean anyExplicitlyDisabled = plugin.getRegionManager().getRegions().stream()
-                    .anyMatch(LevRegion::isEnvoyEventEnabled);
-            if (!anyExplicitlyDisabled) return;
-        }
+        // Fast-fail check: if no shift is active and no region explicitly disables, skip all coordinate math
+        if (!plugin.getWarzoneShiftManager().isAnyShiftActive()
+                && !plugin.getRegionManager().isAnyEnvoyEnabled()) return;
 
         try {
             org.bukkit.entity.Entity targetEntity = null;
@@ -150,12 +147,9 @@ public class EnvoyEventListener implements Listener {
             return;
         }
 
-        // Fast-fail check! If no region explicitly disables, and global shift is off, do nothing.
-        if (!plugin.getWarzoneShiftManager().isAnyShiftActive()) {
-            boolean anyExplicitlyDisabled = plugin.getRegionManager().getRegions().stream()
-                    .anyMatch(LevRegion::isEnvoyEventEnabled);
-            if (!anyExplicitlyDisabled) return;
-        }
+        // Fast-fail check — single field read, no stream scan
+        if (!plugin.getWarzoneShiftManager().isAnyShiftActive()
+                && !plugin.getRegionManager().isAnyEnvoyEnabled()) return;
 
         Location loc = player.getLocation();
         LevRegion region = plugin.getRegionManager().getRegionAt(loc);

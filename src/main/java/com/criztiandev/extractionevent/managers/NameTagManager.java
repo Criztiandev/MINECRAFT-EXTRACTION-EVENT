@@ -6,8 +6,6 @@ import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.criztiandev.extractionevent.ExtractionEventPlugin;
-
-import com.criztiandev.extractionevent.ExtractionEventPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
@@ -49,29 +47,52 @@ public class NameTagManager {
 
         // ProtocolLib Packet Interception to actively destroy the nametag over the head
         if (Bukkit.getPluginManager().getPlugin("ProtocolLib") != null) {
+            ExtractionEventPlugin ownerPlugin = plugin; // capture before PacketAdapter shadows 'plugin'
             ProtocolLibrary.getProtocolManager().addPacketListener(
                 new PacketAdapter(plugin, PacketType.Play.Server.ENTITY_METADATA) {
                     @Override
                     public void onPacketSending(PacketEvent event) {
-                        if (event.getPacketType() == PacketType.Play.Server.ENTITY_METADATA) {
-                            org.bukkit.entity.Entity entity = event.getPacket().getEntityModifier(event.getPlayer().getWorld()).readSafely(0);
-                            if (entity instanceof Player targetPlayer) {
-                                if (originalDisplayNames.containsKey(targetPlayer.getUniqueId()) && !revealMode) {
-                                    PacketContainer cloned = event.getPacket().deepClone();
-                                    
-                                    var watchableObjects = cloned.getDataValueCollectionModifier().readSafely(0);
-                                    if (watchableObjects != null) {
-                                        for (com.comphenix.protocol.wrappers.WrappedDataValue dataValue : watchableObjects) {
-                                            if (dataValue.getIndex() == 3) {
-                                                dataValue.setValue(false);
-                                            }
-                                        }
-                                        cloned.getDataValueCollectionModifier().write(0, watchableObjects);
-                                    }
-                                    event.setPacket(cloned);
-                                }
+                        if (originalDisplayNames.isEmpty() || revealMode) return;
+
+                        Player viewer = event.getPlayer();
+                        if (viewer.getWorld() == null) return;
+
+                        // Admins with monitor:nametags toggled ON see real names
+                        if (ownerPlugin.getAdminMonitorManager()
+                                .has(viewer, AdminMonitorManager.Feature.NAMETAGS)) return;
+
+                        org.bukkit.entity.Entity entity = event.getPacket()
+                                .getEntityModifier(viewer.getWorld())
+                                .readSafely(0);
+
+                        if (!(entity instanceof Player targetPlayer)) return;
+                        if (!originalDisplayNames.containsKey(targetPlayer.getUniqueId())) return;
+
+                        var watchableObjects = event.getPacket()
+                                .getDataValueCollectionModifier()
+                                .readSafely(0);
+                        if (watchableObjects == null) return;
+
+                        boolean needsPatch = false;
+                        for (com.comphenix.protocol.wrappers.WrappedDataValue dataValue : watchableObjects) {
+                            if (dataValue.getIndex() == 3 && Boolean.TRUE.equals(dataValue.getValue())) {
+                                needsPatch = true;
+                                break;
                             }
                         }
+                        if (!needsPatch) return;
+
+                        PacketContainer cloned = event.getPacket().deepClone();
+                        var clonedObjects = cloned.getDataValueCollectionModifier().readSafely(0);
+                        if (clonedObjects != null) {
+                            for (com.comphenix.protocol.wrappers.WrappedDataValue dataValue : clonedObjects) {
+                                if (dataValue.getIndex() == 3) {
+                                    dataValue.setValue(false);
+                                }
+                            }
+                            cloned.getDataValueCollectionModifier().write(0, clonedObjects);
+                        }
+                        event.setPacket(cloned);
                     }
                 }
             );
@@ -96,17 +117,10 @@ public class NameTagManager {
             hiddenTeam.addEntry(player.getName());
         }
 
-        // In reveal mode names stay real (scoreboard team still hides the overhead tag)
-        if (!revealMode) {
-            // Note: DO NOT setDisplayName here, as modifying it raw breaks 1.19+ Chat Signatures 
-            // causing the "Chat validation error". We handle chat anonymization via AsyncChatEvent.
-            player.setPlayerListName(ANONYMOUS_NAME);
-        }
+        // Tab list shows real name if all online admins want that; Anonymous to everyone else
+        player.setPlayerListName(ANONYMOUS_NAME);
     }
 
-    /**
-     * Checks if a player's true identity is currently concealed in a warzone.
-     */
     public boolean isAnonymized(Player player) {
         return originalDisplayNames.containsKey(player.getUniqueId()) && !revealMode;
     }

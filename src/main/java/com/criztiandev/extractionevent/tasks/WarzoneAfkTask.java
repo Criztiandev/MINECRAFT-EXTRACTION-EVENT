@@ -1,7 +1,6 @@
 package com.criztiandev.extractionevent.tasks;
 
 import com.criztiandev.extractionevent.ExtractionEventPlugin;
-import com.criztiandev.extractionevent.models.LevRegion;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,22 +14,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Detects AFK players inside warzone regions and teleports them to world spawn.
- *
- * "AFK" is defined as no position change (pitch/yaw rotation alone is ignored)
- * for longer than {@code warzone.afk-timeout-seconds} (default: 60s).
- *
- * This class is both a {@link Listener} (to track movement) and a
- * {@link BukkitRunnable} (to perform the periodic AFK check).
- * Register it as a listener AND schedule it as a timer in {@code ExtractionEventPlugin}.
- */
 public class WarzoneAfkTask extends BukkitRunnable implements Listener {
 
     private final ExtractionEventPlugin plugin;
     private final long                  timeoutMillis;
 
-    /** UUID → timestamp of last real (position-changing) movement. */
     private final Map<UUID, Long> lastMoved = new HashMap<>(64);
 
     public WarzoneAfkTask(ExtractionEventPlugin plugin) {
@@ -39,11 +27,8 @@ public class WarzoneAfkTask extends BukkitRunnable implements Listener {
         this.timeoutMillis = timeoutSeconds * 1000L;
     }
 
-    // ── Movement tracking ─────────────────────────────────────────────────────
-
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
-        // Ignore pure head rotations — only real position changes count
         Location from = event.getFrom();
         Location to   = event.getTo();
         if (to == null) return;
@@ -59,22 +44,12 @@ public class WarzoneAfkTask extends BukkitRunnable implements Listener {
         lastMoved.remove(event.getPlayer().getUniqueId());
     }
 
-    // ── Periodic AFK check ────────────────────────────────────────────────────
-
     @Override
     public void run() {
         long now = System.currentTimeMillis();
-
-        // Iterate only warzone players by checking the presence cache first.
-        // At 100 total / 30 warzone this saves ~70 map-lookup + early-return iterations per second.
-        for (Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
-            UUID uuid = player.getUniqueId();
-
-            LevRegion region = plugin.getRegionPresenceTask().getCachedRegion(uuid);
-            if (region == null) {
-                lastMoved.remove(uuid); // reset timer when outside so they start fresh on re-entry
-                continue;
-            }
+        for (UUID uuid : plugin.getRegionPresenceTask().getWarzonePlayerUUIDs()) {
+            Player player = org.bukkit.Bukkit.getPlayer(uuid);
+            if (player == null) continue;
 
             long moved  = lastMoved.getOrDefault(uuid, now);
             long idleMs = now - moved;
@@ -85,8 +60,6 @@ public class WarzoneAfkTask extends BukkitRunnable implements Listener {
             }
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void teleportToSpawn(Player player) {
         Location spawn = player.getWorld().getSpawnLocation();

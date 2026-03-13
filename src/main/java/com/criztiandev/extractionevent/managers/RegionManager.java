@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RegionManager {
 
@@ -19,6 +20,7 @@ public class RegionManager {
     private final Map<UUID, RegionSelection> selections = new HashMap<>();
     private final Map<String, LevRegion> regions = new ConcurrentHashMap<>();
     private final Map<String, List<LevRegion>> regionsByWorld = new ConcurrentHashMap<>();
+    private final AtomicBoolean anyEnvoyEnabled = new AtomicBoolean(false);
 
     public RegionManager(ExtractionEventPlugin plugin) {
         this.plugin = plugin;
@@ -33,6 +35,7 @@ public class RegionManager {
                 regions.put(r.getId().toLowerCase(), r);
                 regionsByWorld.computeIfAbsent(r.getWorld().toLowerCase(), k -> new CopyOnWriteArrayList<>()).add(r);
             }
+            recomputeEnvoyFlag();
             plugin.getLogger().info("Loaded " + regions.size() + " lev regions.");
         });
     }
@@ -78,6 +81,7 @@ public class RegionManager {
             worldList.add(region);
         }
 
+        recomputeEnvoyFlag();
         plugin.getStorageProvider().saveRegion(region);
     }
 
@@ -89,7 +93,20 @@ public class RegionManager {
                 worldList.remove(region);
             }
         }
+        recomputeEnvoyFlag();
         plugin.getStorageProvider().deleteRegion(id);
+    }
+
+    /**
+     * Returns true if at least one loaded region has envoyEventEnabled = true.
+     * O(1) — reads a pre-computed flag rather than streaming all regions.
+     */
+    public boolean isAnyEnvoyEnabled() {
+        return anyEnvoyEnabled.get();
+    }
+
+    private void recomputeEnvoyFlag() {
+        anyEnvoyEnabled.set(regions.values().stream().anyMatch(LevRegion::isEnvoyEventEnabled));
     }
 
     public RegionSelection getOrCreateSelection(UUID uuid) {

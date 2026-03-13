@@ -1,6 +1,7 @@
 package com.criztiandev.extractionevent.listeners;
 
 import com.criztiandev.extractionevent.ExtractionEventPlugin;
+import com.criztiandev.extractionevent.managers.AdminMonitorManager;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -38,20 +39,23 @@ public class AnonymousChatListener implements Listener {
 
         if (!plugin.getNameTagManager().isAnonymized(player)) return;
 
-        // Cancel the original signed event — Minecraft will never validate the signature
         event.setCancelled(true);
 
-        // Capture message content before leaving async context (Component is immutable, safe)
         Component message   = event.message();
         Component formatted = ANON_PREFIX.append(message);
 
-        // Re-broadcast on the main thread (Bukkit collection must be read on main thread)
+        String realName = plugin.getNameTagManager().getRealName(player.getUniqueId());
+        Component adminFormatted = Component.text("[Monitor] ", NamedTextColor.DARK_RED)
+                .append(Component.text(realName, NamedTextColor.RED))
+                .append(Component.text(": ", NamedTextColor.GRAY))
+                .append(message);
+
         Bukkit.getScheduler().runTask(plugin, () -> {
+            AdminMonitorManager monitor = plugin.getAdminMonitorManager();
             for (Player recipient : Bukkit.getOnlinePlayers()) {
-                recipient.sendMessage(formatted);
+                boolean sees = monitor.has(recipient, AdminMonitorManager.Feature.CHAT);
+                recipient.sendMessage(sees ? adminFormatted : formatted);
             }
-            // Log to console with real name so admins can audit
-            String realName = plugin.getNameTagManager().getRealName(player.getUniqueId());
             plugin.getServer().getConsoleSender().sendMessage(
                     "[Chat/Anon] " + realName + ": "
                     + PlainTextComponentSerializer.plainText().serialize(message)

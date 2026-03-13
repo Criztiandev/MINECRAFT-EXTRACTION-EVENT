@@ -53,14 +53,21 @@ public class JsonStorageProvider implements StorageProvider {
     @Override
     public CompletableFuture<Boolean> saveRegion(LevRegion region) {
         return CompletableFuture.supplyAsync(() -> {
-            File file = new File(folder, region.getId().toLowerCase() + ".json");
-            try (FileWriter writer = new FileWriter(file)) {
+            File dest = new File(folder, region.getId().toLowerCase() + ".json");
+            File tmp  = new File(folder, region.getId().toLowerCase() + ".json.tmp");
+            try (FileWriter writer = new FileWriter(tmp)) {
                 gson.toJson(region, writer);
-                return true;
             } catch (IOException e) {
-                plugin.getLogger().severe("Could not save region " + region.getId() + ": " + e.getMessage());
+                plugin.getLogger().severe("Could not write tmp for region " + region.getId() + ": " + e.getMessage());
                 return false;
             }
+            // Atomic rename — never leaves the permanent file in a half-written state
+            if (dest.exists()) dest.delete();
+            if (!tmp.renameTo(dest)) {
+                plugin.getLogger().severe("Atomic rename failed for region " + region.getId());
+                return false;
+            }
+            return true;
         });
     }
 

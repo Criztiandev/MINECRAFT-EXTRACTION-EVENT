@@ -51,25 +51,25 @@ public class MimicSpawnTask extends BukkitRunnable {
         }
     }
 
-    /**
-     * Finds the first player that has at least {@code GROUP_SIZE_REQUIREMENT} players
-     * clustered within {@code GROUP_DISTANCE_SQ} of them (including themselves).
-     * Uses squared distance to avoid sqrt per pair.
-     */
+
     private Player findGroupPlayer(List<Player> players) {
         int n = players.size();
+
+        org.bukkit.Location[] locs = new org.bukkit.Location[n];
         for (int i = 0; i < n; i++) {
-            Player p1 = players.get(i);
+            locs[i] = players.get(i).getLocation();
+        }
+
+        for (int i = 0; i < n; i++) {
             int nearbyCount = 1;
             for (int j = 0; j < n; j++) {
                 if (i == j) continue;
-                Player p2 = players.get(j);
-                if (!p1.getWorld().equals(p2.getWorld())) continue;
-                if (p1.getLocation().distanceSquared(p2.getLocation()) <= GROUP_DISTANCE_SQ) {
+                if (!locs[i].getWorld().equals(locs[j].getWorld())) continue;
+                if (locs[i].distanceSquared(locs[j]) <= GROUP_DISTANCE_SQ) {
                     nearbyCount++;
                 }
             }
-            if (nearbyCount >= GROUP_SIZE_REQUIREMENT) return p1;
+            if (nearbyCount >= GROUP_SIZE_REQUIREMENT) return players.get(i);
         }
         return null;
     }

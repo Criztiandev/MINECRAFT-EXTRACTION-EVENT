@@ -1,0 +1,9 @@
+name: MinimapControl
+version: 1.17.0
+main: com.funniray.minimap.spigot.SpigotMinimap
+description: Control minimap settings from server-side software
+authors:
+ - funniray
+api-version: 1.13
+softdepend:
+ - viaversion

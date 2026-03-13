@@ -2,6 +2,7 @@ package com.criztiandev.extractionevent.managers;
 
 import com.criztiandev.extractionevent.ExtractionEventPlugin;
 import com.criztiandev.extractionevent.models.LevRegion;
+import com.criztiandev.extractionevent.storage.StateStore;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -123,14 +124,13 @@ public class WarzoneShiftManager {
         LevRegion region = plugin.getRegionManager().getRegion(regionId);
         if (region == null) return;
         
-        org.bukkit.World w = Bukkit.getWorld(region.getWorld());
+        org.bukkit.World w = org.bukkit.Bukkit.getWorld(region.getWorld());
         if (w == null) return;
 
         String title = isStarting ? "§c§lWARZONE SHIFT" : "§a§lSHIFT ENDED";
         String subtitle = isStarting ? "§7Custom Enchants Disabled - Vanilla PvP Mode" : "§7Custom Enchants Restored";
 
-        for (Player p : w.getPlayers()) {
-            // Check if player is actually inside the boundary
+        for (org.bukkit.entity.Player p : w.getPlayers()) {
             org.bukkit.Location loc = p.getLocation();
             if (loc.getX() >= region.getMinX() && loc.getX() <= region.getMaxX() &&
                 loc.getZ() >= region.getMinZ() && loc.getZ() <= region.getMaxZ() &&
@@ -138,6 +138,32 @@ public class WarzoneShiftManager {
                 
                 p.sendTitle(title, subtitle, 10, 70, 20);
                 p.playSound(p.getLocation(), isStarting ? org.bukkit.Sound.ENTITY_ENDER_DRAGON_GROWL : org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.0f);
+            }
+        }
+    }
+
+    // ── Persistence ──────────────────────────────────────────────────────────
+
+    /** Snapshot current shifts into state so they survive a reload/restart. */
+    public void captureState(StateStore.State state) {
+        // Only keep non-expired shifts in the snapshot
+        long now = System.currentTimeMillis();
+        activeShifts.entrySet().stream()
+                .filter(e -> e.getValue() > now)
+                .forEach(e -> state.activeShifts.put(e.getKey(), e.getValue()));
+    }
+
+    /**
+     * Re-add shifts from a persisted state snapshot.
+     * No broadcast is sent — players were already notified before the reload.
+     */
+    public void restoreState(StateStore.State state) {
+        long now = System.currentTimeMillis();
+        for (Map.Entry<String, Long> entry : state.activeShifts.entrySet()) {
+            if (entry.getValue() > now) {
+                activeShifts.put(entry.getKey(), entry.getValue());
+                plugin.getLogger().info("[WarzoneShift] Restored shift for '" + entry.getKey()
+                        + "' — " + ((entry.getValue() - now) / 1000) + "s remaining.");
             }
         }
     }

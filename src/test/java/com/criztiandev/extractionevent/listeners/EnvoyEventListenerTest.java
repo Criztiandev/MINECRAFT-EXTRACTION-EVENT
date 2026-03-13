@@ -90,7 +90,7 @@ class EnvoyEventListenerTest {
         region.setEnvoyEventEnabled(true); // Admin explicitly turned it OFF permanently for this zone
 
         when(shiftManager.isAnyShiftActive()).thenReturn(false); // Global shift inactive
-        when(regionManager.getRegions()).thenReturn(Collections.singletonList(region));
+        when(regionManager.isAnyEnvoyEnabled()).thenReturn(true);
         when(regionManager.getRegionAt(loc)).thenReturn(region);
 
         try (MockedStatic<org.bukkit.Bukkit> mockedBukkit = mockStatic(org.bukkit.Bukkit.class)) {
@@ -116,7 +116,7 @@ class EnvoyEventListenerTest {
         region.setEnvoyEventEnabled(false); // Admin allowed enchants here
 
         when(shiftManager.isAnyShiftActive()).thenReturn(false); // Global shift inactive
-        when(regionManager.getRegions()).thenReturn(Collections.singletonList(region));
+        when(regionManager.isAnyEnvoyEnabled()).thenReturn(false);
         when(regionManager.getRegionAt(loc)).thenReturn(region);
 
         try (MockedStatic<org.bukkit.Bukkit> mockedBukkit = mockStatic(org.bukkit.Bukkit.class)) {
